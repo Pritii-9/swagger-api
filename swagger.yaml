@@ -1,0 +1,471 @@
+openapi: 3.0.0
+info:
+  title: Daily Habit Tracker API
+  version: 1.0.0
+  description: A robust and scalable backend API for a Daily Habit Tracker application, allowing users to track their daily habits and repeated tasks.
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+
+security:
+  - bearerAuth: [] # Apply bearer token security globally
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter the Bearer Token (JWT) obtained from login endpoint
+
+  schemas:
+    User:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the user
+          example: 60c72b2f9b1d8c001c8c8c8c
+        username:
+          type: string
+          description: User's chosen username
+          example: johndoe
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: john.doe@example.com
+        password:
+          type: string
+          description: User's password (hashed in DB)
+          example: password123 (send clear text for registration/login)
+        createdAt:
+          type: string
+          format: date-time
+          description: Date when the user account was created
+          example: 2023-10-26T10:00:00.000Z
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 60c72b2f9b1d8c001c8c8c8c
+        username:
+          type: string
+          example: johndoe
+        email:
+          type: string
+          example: john.doe@example.com
+        token:
+          type: string
+          description: JWT Bearer Token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    Habit:
+      type: object
+      required:
+        - name
+      properties:
+        _id:
+          type: string
+          description: Unique identifier for the habit
+          example: 60c72b2f9b1d8c001c8c8c8d
+        user:
+          type: string
+          description: ID of the user who owns the habit
+          example: 60c72b2f9b1d8c001c8c8c8c
+        name:
+          type: string
+          description: Name of the habit
+          example: Drink 8 glasses of water
+        description:
+          type: string
+          description: Detailed description of the habit
+          example: Stay hydrated throughout the day by drinking eight 8-ounce glasses of water.
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly, custom]
+          description: How often the habit should be performed
+          example: daily
+        completionDates:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: Array of dates when the habit was completed
+          example: ["2023-10-20T00:00:00.000Z", "2023-10-21T00:00:00.000Z"]
+        createdAt:
+          type: string
+          format: date-time
+          description: Date when the habit was created
+          example: 2023-10-19T10:00:00.000Z
+
+    TrackHabitRequest:
+      type: object
+      required:
+        - date
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date to mark habit as completed (YYYY-MM-DD)
+          example: 2023-10-26
+
+    HabitHistoryResponse:
+      type: object
+      properties:
+        habit:
+          type: string
+          description: Name of the habit
+          example: Read 30 minutes
+        completionHistory:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: Sorted list of dates the habit was completed
+          example: ["2023-10-20T00:00:00.000Z", "2023-10-21T00:00:00.000Z"]
+
+    HabitStatistics:
+      type: object
+      properties:
+        habitId:
+          type: string
+          description: Unique identifier for the habit
+          example: 60c72b2f9b1d8c001c8c8c8d
+        name:
+          type: string
+          description: Name of the habit
+          example: Exercise
+        totalCompletions:
+          type: number
+          format: integer
+          description: Total number of times the habit has been completed
+          example: 15
+        currentStreak:
+          type: number
+          format: integer
+          description: Current consecutive streak of habit completions
+          example: 7
+        completionRate:
+          type: number
+          format: float
+          description: Percentage of days completed since habit creation
+          example: 85.50
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  example: newuser
+                email:
+                  type: string
+                  format: email
+                  example: newuser@example.com
+                password:
+                  type: string
+                  example: strongpassword123
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        400:
+          description: Invalid user data or user already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User already exists with this email or username
+
+  /auth/login:
+    post:
+      summary: Authenticate user and get JWT token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        200:
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        401:
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Invalid email or password
+
+  /habits:
+    post:
+      summary: Create a new habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Exercise daily
+                description:
+                  type: string
+                  example: Go for a 30-minute run or do bodyweight exercises.
+                frequency:
+                  type: string
+                  enum: [daily, weekly, monthly, custom]
+                  example: daily
+      responses:
+        201:
+          description: Habit created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        400:
+          description: Invalid habit data
+        401:
+          description: Unauthorized, invalid token
+
+    get:
+      summary: Get all habits for the authenticated user
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: A list of user's habits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Habit'
+        401:
+          description: Unauthorized, invalid token
+
+  /habits/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          example: 60c72b2f9b1d8c001c8c8c8d
+        description: ID of the habit to retrieve, update, or delete.
+    get:
+      summary: Get a single habit by ID
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Details of a single habit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        401:
+          description: Unauthorized, invalid token
+        404:
+          description: Habit not found or not authorized
+
+    put:
+      summary: Update a habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Meditate 15 minutes
+                description:
+                  type: string
+                  example: Daily meditation practice for mindfulness.
+                frequency:
+                  type: string
+                  enum: [daily, weekly, monthly, custom]
+                  example: daily
+      responses:
+        200:
+          description: Habit updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        400:
+          description: Invalid update data
+        401:
+          description: Unauthorized, invalid token
+        404:
+          description: Habit not found or not authorized
+
+    delete:
+      summary: Delete a habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Habit deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Habit removed
+        401:
+          description: Unauthorized, invalid token
+        404:
+          description: Habit not found or not authorized
+
+  /habits/{id}/track:
+    post:
+      summary: Mark a habit as completed for a specific day
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: 60c72b2f9b1d8c001c8c8c8d
+          description: ID of the habit to track completion for.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackHabitRequest'
+      responses:
+        200:
+          description: Habit completion recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        400:
+          description: Invalid date format or habit already completed for this date
+        401:
+          description: Unauthorized, invalid token
+        404:
+          description: Habit not found or not authorized
+
+  /habits/{id}/history:
+    get:
+      summary: Retrieve historical completion data for a habit
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: 60c72b2f9b1d8c001c8c8c8d
+          description: ID of the habit to retrieve history for.
+      responses:
+        200:
+          description: Habit completion history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitHistoryResponse'
+        401:
+          description: Unauthorized, invalid token
+        404:
+          description: Habit not found or not authorized to view history
+
+  /habits/statistics:
+    get:
+      summary: Provide summary statistics for user habits
+      tags:
+        - Habits
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Summary statistics for user habits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HabitStatistics'
+        401:
+          description: Unauthorized, invalid token

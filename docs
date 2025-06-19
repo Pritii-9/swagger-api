@@ -1,0 +1,49 @@
+
+## Error Handling
+
+The API implements a centralized error handling middleware (`middleware/errorHandler.js`) to catch and format errors consistently. Invalid requests or server-side issues will return appropriate HTTP status codes and a JSON response with an error `message`. In development mode, the error `stack` is also provided for easier debugging.
+
+## Input Validation
+
+All incoming request bodies for registration, login, and habit management are validated using [Joi](https://joi.dev/). This ensures that data conforms to expected schemas before being processed by the controllers, providing meaningful error messages for invalid input.
+
+## Postman Collection
+
+A Postman collection can be generated from the Swagger documentation (`http://localhost:5000/api-docs`). Look for an "Export" button or copy the `swagger.yaml` content and import it into Postman.
+
+Alternatively, you can manually create requests in Postman:
+
+* **Register User**: `POST` `http://localhost:5000/api/auth/register` with `Body -> raw -> JSON`
+    ```json
+    {
+        "username": "testuser",
+        "email": "test@example.com",
+        "password": "password123"
+    }
+    ```
+* **Login User**: `POST` `http://localhost:5000/api/auth/login` with `Body -> raw -> JSON`
+    ```json
+    {
+        "email": "test@example.com",
+        "password": "password123"
+    }
+    ```
+    (Copy the `token` from the response for subsequent authenticated requests)
+
+* **Create Habit**: `POST` `http://localhost:5000/api/habits` with `Authorization -> Bearer Token` and `Body -> raw -> JSON`
+    ```json
+    {
+        "name": "Read 30 minutes",
+        "description": "Read a book or article for 30 minutes daily.",
+        "frequency": "daily"
+    }
+    ```
+* **Track Habit Completion**: `POST` `http://localhost:5000/api/habits/:id/track` with `Authorization -> Bearer Token` and `Body -> raw -> JSON`
+    ```json
+    {
+        "date": "2023-10-26"
+    }
+    ```
+    (Replace `:id` with an actual habit ID)
+
+And so on for other endpoints.
